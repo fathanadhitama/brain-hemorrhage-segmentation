@@ -439,16 +439,18 @@ def parse_args():
     
     return parser.parse_args()
 
-def evaluate_model(model, loader, device, threshold=0.25):
-    """Evaluate model on a test set (loss + Dice)."""
-    
+def evaluate_model(model, test_files, batch_size, device, threshold=0.25):
+    train_transforms, val_transforms = get_transforms()
+    test_ds = Dataset(data=test_files, transform=val_transforms)
+    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+
     model.eval()
     test_losses = []
     dice_metric = DiceMetric(include_background=False, reduction="mean")
     loss_function = DiceCELoss(sigmoid=True, to_onehot_y=False)
     
     with torch.no_grad():
-        for batch in loader:
+        for batch in test_loader:
             inputs = batch["image"].to(device)
             labels = batch["label"].to(device)
             
@@ -456,7 +458,6 @@ def evaluate_model(model, loader, device, threshold=0.25):
             loss = loss_function(outputs, labels)
             test_losses.append(loss.item())
             
-            # Dice score
             if labels.sum() > 0:  
                 probs = torch.sigmoid(outputs)
                 preds = (probs > threshold).float()
@@ -466,7 +467,7 @@ def evaluate_model(model, loader, device, threshold=0.25):
     mean_dice = dice_metric.aggregate().item()
     dice_metric.reset()
     
-    return avg_test_loss, mean_dice
+    return avg_test_loss, {"MeanDice": mean_dice}
 
 
 # ============================================================================
