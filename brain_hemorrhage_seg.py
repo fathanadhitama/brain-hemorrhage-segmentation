@@ -476,6 +476,7 @@ def evaluate_model(model, test_files, batch_size, device, threshold=0.25):
 
 if __name__ == "__main__":
     args = parse_args()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -529,8 +530,9 @@ if __name__ == "__main__":
     test_loss, test_metrics = evaluate_model(
         model=model,
         test_files=test_files,
-        data_dir=args.data_dir,
         batch_size=args.batch_size,
+        device=device,
+        threshold=args.threshold
     )
 
     print("=" * 80)
