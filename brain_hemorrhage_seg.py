@@ -439,6 +439,35 @@ def parse_args():
     
     return parser.parse_args()
 
+def evaluate_model(model, loader, device, threshold=0.25):
+    """Evaluate model on a test set (loss + Dice)."""
+    
+    model.eval()
+    test_losses = []
+    dice_metric = DiceMetric(include_background=False, reduction="mean")
+    loss_function = DiceCELoss(sigmoid=True, to_onehot_y=False)
+    
+    with torch.no_grad():
+        for batch in loader:
+            inputs = batch["image"].to(device)
+            labels = batch["label"].to(device)
+            
+            outputs = model(inputs)
+            loss = loss_function(outputs, labels)
+            test_losses.append(loss.item())
+            
+            # Dice score
+            if labels.sum() > 0:  
+                probs = torch.sigmoid(outputs)
+                preds = (probs > threshold).float()
+                dice_metric(y_pred=preds, y=labels)
+    
+    avg_test_loss = float(np.mean(test_losses))
+    mean_dice = dice_metric.aggregate().item()
+    dice_metric.reset()
+    
+    return avg_test_loss, mean_dice
+
 
 # ============================================================================
 # Main Execution
@@ -494,3 +523,19 @@ if __name__ == "__main__":
     print(f"Training curve saved to {plot_path}")
     
     print("\nTraining completed successfully!")
+
+    # Evaluate model on test set
+    test_loss, test_metrics = evaluate_model(
+        model=model,
+        test_files=test_files,
+        data_dir=args.data_dir,
+        batch_size=args.batch_size,
+    )
+
+    print("=" * 80)
+    print("Final Test Evaluation:")
+    print("=" * 80)
+    print(f"Test Loss   : {test_loss:.4f}")
+    for metric, value in test_metrics.items():
+        print(f"{metric:12s}: {value:.4f}")
+    print("=" * 80)
