@@ -1,0 +1,7 @@
+nibabel
+SimpleITK
+numpy
+matplotlib
+scikit-learn
+ipywidgets
+monai
